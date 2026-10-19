@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage Metering &amp; Quota Demo</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2e3147;
+      --accent: #6c63ff;
+      --accent-hover: #857de0;
+      --text: #e2e4f0;
+      --muted: #8b8fa8;
+      --green: #3ecf8e;
+      --red: #f04d4d;
+      --yellow: #f5a623;
+      --radius: 8px;
+      --font: 'Segoe UI', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header h1 span { color: var(--accent); }
+
+    #session-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    #session-bar .pill {
+      background: #252840;
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #session-bar .pill.active { color: var(--green); border-color: var(--green); }
+    #forget-btn {
+      cursor: pointer;
+      background: none;
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    #forget-btn:hover { background: rgba(240,77,77,.1); }
+
+    nav {
+      display: flex;
+      gap: 4px;
+      padding: 12px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    nav button {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all .15s;
+    }
+    nav button:hover { color: var(--text); border-color: var(--border); }
+    nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    main { padding: 24px; max-width: 900px; margin: 0 auto; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+    .form-row { margin-bottom: 14px; }
+    .form-row label { display: block; color: var(--muted); margin-bottom: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .form-row input, .form-row select, .form-row textarea {
+      width: 100%;
+      background: #11131e;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .form-row input:focus, .form-row select:focus { outline: none; border-color: var(--accent); }
+    .form-row textarea { resize: vertical; min-height: 80px; font-family: monospace; font-size: 12px; }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background .15s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn.danger { background: var(--red); }
+    .btn.danger:hover { background: #c23c3c; }
+    .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+    .btn.secondary:hover { color: var(--text); border-color: var(--accent); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .response-box {
+      margin-top: 14px;
+      background: #0b0d16;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .response-box.ok { border-color: var(--green); color: var(--green); }
+    .response-box.err { border-color: var(--red); color: var(--red); }
+    .response-box.warn { border-color: var(--yellow); color: var(--yellow); }
+    .response-box.info { border-color: var(--accent); color: #a29bfe; }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .tag.accepted { background: rgba(62,207,142,.15); color: var(--green); }
+    .tag.rejected { background: rgba(240,77,77,.15); color: var(--red); }
+
+    .inline-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    .inline-row .form-row { flex: 1; margin-bottom: 0; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .stat-card {
+      background: #11131e;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+    }
+    .stat-card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .stat-card .value { font-size: 22px; font-weight: 700; }
+    .stat-card .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 8px 10px; border-bottom: 1px solid #1e2133; }
+    tbody tr:hover td { background: #1e2133; }
+
+    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+    .pagination .info { color: var(--muted); font-size: 12px; flex: 1; }
+
+    .info-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #13152240;
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Usage Metering &amp; Quota <span>Demo</span></h1>
+  <div id="session-bar">
+    <span id="session-label">No active session</span>
+    <span id="session-key-pill" class="pill" style="display:none"></span>
+    <button id="forget-btn" style="display:none" onclick="forgetSession()">Forget key</button>
+  </div>
+</header>
+
+<nav id="nav">
+  <button class="active" data-section="sec-account" onclick="showSection(this,'sec-account')">Account</button>
+  <button data-section="sec-users" onclick="showSection(this,'sec-users')">Users</button>
+  <button data-section="sec-plans" onclick="showSection(this,'sec-plans')">Plans</button>
+  <button data-section="sec-usage" onclick="showSection(this,'sec-usage')">Usage</button>
+  <button data-section="sec-summary" onclick="showSection(this,'sec-summary')">Summary</button>
+  <button data-section="sec-report" onclick="showSection(this,'sec-report')">Monthly Report</button>
+  <button data-section="sec-history" onclick="showSection(this,'sec-history')">History</button>
+</nav>
+
+<main>
+
+  <!-- ============================================================ ACCOUNT -->
+  <div class="section active" id="sec-account">
+
+    <div class="card">
+      <h2>Create a Demo Account</h2>
+      <p class="info-note">Your API key is kept in JavaScript memory for this browser tab only. It is <strong>never stored in localStorage or cookies</strong> and is lost when you close the tab or click "Forget key".</p>
+      <br>
+      <div class="form-row">
+        <label>Account Name</label>
+        <input id="acc-name" type="text" placeholder="e.g. Acme Corp" />
+      </div>
+      <div class="form-row">
+        <label>Account Plan</label>
+        <select id="acc-plan">
+          <option value="">Loading plans…</option>
+        </select>
+      </div>
+      <button class="btn" onclick="createAccount()">Create Account &amp; Get API Key</button>
+      <div id="acc-res" class="response-box" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>Enter Existing API Key</h2>
+      <p class="info-note">If you already have an API key from a previous step, paste it here to resume the session.</p>
+      <br>
+      <div class="inline-row">
+        <div class="form-row" style="flex:1">
+          <label>API Key</label>
+          <input id="existing-key" type="text" placeholder="umq_live_…" />
+        </div>
+        <button class="btn secondary" onclick="loadExistingKey()">Use This Key</button>
+      </div>
+    </div>
+
+    <div class="card" id="acc-me-card" style="display:none">
+      <h2>My Account</h2>
+      <button class="btn secondary" onclick="loadAccountMe()">Refresh</button>
+      <div id="acc-me-res" class="response-box info" style="display:none"></div>
+    </div>
+
+    <div class="card" id="acc-plan-card" style="display:none">
+      <h2>Change Account Plan</h2>
+      <div class="form-row">
+        <label>Plan ID</label>
+        <input id="new-acc-plan-id" type="text" placeholder="UUID of the plan" />
+      </div>
+      <button class="btn" onclick="changeAccountPlan()">Update Plan</button>
+      <div id="acc-plan-res" class="response-box" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ USERS -->
+  <div class="section" id="sec-users">
+
+    <div class="card">
+      <h2>Create User</h2>
+      <div class="form-row">
+        <label>User Name</label>
+        <input id="user-name" type="text" placeholder="e.g. alice" />
+      </div>
+      <div class="form-row">
+        <label>User Plan ID</label>
+        <input id="user-plan-id" type="text" placeholder="UUID of a USER-scoped plan" />
+      </div>
+      <button class="btn" onclick="createUser()">Create User</button>
+      <div id="user-create-res" class="response-box" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>List Users</h2>
+      <button class="btn secondary" onclick="listUsers()">Load Users</button>
+      <div id="users-list" style="margin-top:14px; overflow-x:auto;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Change User Plan</h2>
+      <div class="form-row">
+        <label>User ID</label>
+        <input id="chg-user-id" type="text" placeholder="UUID" />
+      </div>
+      <div class="form-row">
+        <label>New Plan ID</label>
+        <input id="chg-user-plan-id" type="text" placeholder="UUID of a USER-scoped plan" />
+      </div>
+      <button class="btn" onclick="changeUserPlan()">Update User Plan</button>
+      <div id="chg-user-res" class="response-box" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ PLANS -->
+  <div class="section" id="sec-plans">
+
+    <div class="card">
+      <h2>All Accessible Plans</h2>
+      <button class="btn secondary" onclick="listPlans()">Load Plans</button>
+      <div id="plans-list" style="margin-top:14px; overflow-x:auto;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Create Custom Plan</h2>
+      <div class="form-row">
+        <label>Name</label>
+        <input id="plan-name" type="text" placeholder="e.g. Enterprise" />
+      </div>
+      <div class="form-row">
+        <label>Scope</label>
+        <select id="plan-scope">
+          <option value="ACCOUNT">ACCOUNT</option>
+          <option value="USER">USER</option>
+        </select>
+      </div>
+      <div class="inline-row">
+        <div class="form-row">
+          <label>Monthly Allowance</label>
+          <input id="plan-allowance" type="number" min="1" placeholder="e.g. 50000" />
+        </div>
+        <div class="form-row">
+          <label>Max Units / Request</label>
+          <input id="plan-max" type="number" min="1" placeholder="e.g. 2000" />
+        </div>
+      </div>
+      <button class="btn" onclick="createPlan()">Create Plan</button>
+      <div id="plan-create-res" class="response-box" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ USAGE -->
+  <div class="section" id="sec-usage">
+
+    <div class="card">
+      <h2>Submit Usage Request</h2>
+      <p class="info-note">Each request requires a unique Client Request ID (for idempotency). Identical retries replay the original result; mismatched retries return 409.</p>
+      <br>
+      <div class="form-row">
+        <label>User ID</label>
+        <input id="usage-user-id" type="text" placeholder="UUID of a user in this account" />
+      </div>
+      <div class="form-row">
+        <label>Units (positive integer)</label>
+        <input id="usage-units" type="number" min="1" placeholder="e.g. 100" />
+      </div>
+      <div class="inline-row" style="margin-bottom:14px">
+        <div class="form-row" style="flex:1">
+          <label>Client Request ID</label>
+          <input id="usage-req-id" type="text" placeholder="Unique string or UUID" />
+        </div>
+        <button class="btn secondary" onclick="genUuid('usage-req-id')">Generate</button>
+      </div>
+      <button class="btn" onclick="submitUsage()">Submit</button>
+      <div id="usage-res" class="response-box" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ SUMMARY -->
+  <div class="section" id="sec-summary">
+
+    <div class="card">
+      <h2>Current Month Usage Summary</h2>
+      <button class="btn secondary" onclick="loadSummary()">Load Summary</button>
+      <div id="summary-stats" style="margin-top:16px"></div>
+      <div id="summary-users" style="margin-top:16px; overflow-x:auto;"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ MONTHLY REPORT -->
+  <div class="section" id="sec-report">
+
+    <div class="card">
+      <h2>Monthly Aggregate Report</h2>
+      <div class="inline-row">
+        <div class="form-row" style="flex:1">
+          <label>Period (YYYY-MM)</label>
+          <input id="report-period" type="text" placeholder="e.g. 2026-10" />
+        </div>
+        <button class="btn secondary" onclick="loadReport()">Load Report</button>
+      </div>
+      <div id="report-res" class="response-box info" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================ HISTORY -->
+  <div class="section" id="sec-history">
+
+    <div class="card">
+      <h2>Usage Ledger</h2>
+      <div class="inline-row" style="margin-bottom:14px; flex-wrap:wrap; gap:12px;">
+        <div class="form-row" style="flex:1; min-width:180px">
+          <label>User ID (optional filter)</label>
+          <input id="hist-user-id" type="text" placeholder="UUID or leave blank" />
+        </div>
+        <div class="form-row" style="min-width:140px">
+          <label>Status (optional)</label>
+          <select id="hist-status">
+            <option value="">All</option>
+            <option value="ACCEPTED">ACCEPTED</option>
+            <option value="REJECTED">REJECTED</option>
+          </select>
+        </div>
+        <div class="form-row" style="min-width:80px">
+          <label>Limit</label>
+          <input id="hist-limit" type="number" min="1" max="100" value="20" />
+        </div>
+      </div>
+      <button class="btn secondary" onclick="loadHistory(1)">Load History</button>
+      <div id="hist-table" style="margin-top:14px; overflow-x:auto;"></div>
+      <div class="pagination" id="hist-pagination" style="display:none">
+        <span class="info" id="hist-page-info"></span>
+        <button class="btn secondary" id="hist-prev" onclick="histPage(-1)">← Prev</button>
+        <button class="btn secondary" id="hist-next" onclick="histPage(+1)">Next →</button>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+// ────────────────────────────────────────────────────────────
+// SESSION — API key lives in JS memory only.
+// It is never written to localStorage, sessionStorage, or cookies.
+// ────────────────────────────────────────────────────────────
+let SESSION_API_KEY = null; // in-memory only
+let histCurrentPage = 1;
+
+function setSession(apiKey) {
+  SESSION_API_KEY = apiKey;
+  const pill = document.getElementById('session-key-pill');
+  const label = document.getElementById('session-label');
+  const forgetBtn = document.getElementById('forget-btn');
+  const meCard = document.getElementById('acc-me-card');
+  const planCard = document.getElementById('acc-plan-card');
+
+  if (apiKey) {
+    pill.textContent = apiKey.substring(0, 16) + '…';
+    pill.classList.add('active');
+    pill.style.display = 'inline-block';
+    label.textContent = 'Session active';
+    forgetBtn.style.display = 'inline-block';
+    meCard.style.display = 'block';
+    planCard.style.display = 'block';
+    loadAccountMe();
+  } else {
+    pill.style.display = 'none';
+    forgetBtn.style.display = 'none';
+    label.textContent = 'No active session';
+    pill.classList.remove('active');
+    meCard.style.display = 'none';
+    planCard.style.display = 'none';
+  }
+}
+
+function forgetSession() {
+  SESSION_API_KEY = null;
+  setSession(null);
+  show('acc-me-res', '', '');
+}
+
+function apiHeaders() {
+  if (!SESSION_API_KEY) return {};
+  return { 'X-API-Key': SESSION_API_KEY, 'Content-Type': 'application/json' };
+}
+
+function requireKey() {
+  if (!SESSION_API_KEY) {
+    alert('No API key in session. Create an account or enter an existing key first.');
+    return false;
+  }
+  return true;
+}
+
+// ────────────────────────────────────────────────────────────
+// NAVIGATION
+// ────────────────────────────────────────────────────────────
+function showSection(btn, id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ────────────────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────────────────
+function show(id, content, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'response-box ' + cls;
+  el.textContent = content;
+  el.style.display = content ? 'block' : 'none';
+}
+
+function showJson(id, obj, cls) {
+  show(id, JSON.stringify(obj, null, 2), cls);
+}
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, opts);
+  let body;
+  try { body = await res.json(); } catch { body = {}; }
+  return { status: res.status, body };
+}
+
+function genUuid(targetId) {
+  const uuid = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+  document.getElementById(targetId).value = uuid;
+}
+
+// ────────────────────────────────────────────────────────────
+// ACCOUNT
+// ────────────────────────────────────────────────────────────
+async function loadDemoPlans() {
+  try {
+    const { body } = await apiFetch('/api/v1/demo/plans');
+    const sel = document.getElementById('acc-plan');
+    const accountPlans = (body.plans || []).filter(p => p.scope === 'ACCOUNT');
+    sel.innerHTML = accountPlans.length
+      ? accountPlans.map(p => `<option value="${p.id}">${p.name} — ${p.monthlyAllowance.toLocaleString()} units/mo</option>`).join('')
+      : '<option value="">No ACCOUNT plans available</option>';
+  } catch {
+    document.getElementById('acc-plan').innerHTML = '<option value="">Failed to load plans</option>';
+  }
+}
+
+async function createAccount() {
+  const name = document.getElementById('acc-name').value.trim();
+  const planId = document.getElementById('acc-plan').value;
+  if (!name) { show('acc-res', 'Account name is required.', 'err'); return; }
+  if (!planId) { show('acc-res', 'Please select a plan.', 'err'); return; }
+
+  const { status, body } = await apiFetch('/api/v1/demo/create-account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, planId }),
+  });
+
+  if (status === 201) {
+    showJson('acc-res', body, 'ok');
+    setSession(body.apiKey);
+  } else {
+    showJson('acc-res', body, 'err');
+  }
+}
+
+function loadExistingKey() {
+  const key = document.getElementById('existing-key').value.trim();
+  if (!key) { alert('Please enter an API key.'); return; }
+  setSession(key);
+}
+
+async function loadAccountMe() {
+  if (!requireKey()) return;
+  const { status, body } = await apiFetch('/api/v1/accounts/me', { headers: apiHeaders() });
+  showJson('acc-me-res', body, status === 200 ? 'info' : 'err');
+}
+
+async function changeAccountPlan() {
+  if (!requireKey()) return;
+  const planId = document.getElementById('new-acc-plan-id').value.trim();
+  const { status, body } = await apiFetch('/api/v1/accounts/me/plan', {
+    method: 'PATCH',
+    headers: apiHeaders(),
+    body: JSON.stringify({ planId }),
+  });
+  showJson('acc-plan-res', body, status === 200 ? 'ok' : 'err');
+}
+
+// ────────────────────────────────────────────────────────────
+// USERS
+// ────────────────────────────────────────────────────────────
+async function createUser() {
+  if (!requireKey()) return;
+  const name = document.getElementById('user-name').value.trim();
+  const planId = document.getElementById('user-plan-id').value.trim();
+  const { status, body } = await apiFetch('/api/v1/users', {
+    method: 'POST',
+    headers: apiHeaders(),
+    body: JSON.stringify({ name, planId }),
+  });
+  showJson('user-create-res', body, status === 201 ? 'ok' : 'err');
+  if (status === 201) document.getElementById('usage-user-id').value = body.id;
+}
+
+async function listUsers() {
+  if (!requireKey()) return;
+  const { status, body } = await apiFetch('/api/v1/users', { headers: apiHeaders() });
+  if (status !== 200) { showJson('users-list', body, 'err'); return; }
+  const users = body.users || [];
+  if (!users.length) {
+    document.getElementById('users-list').innerHTML = '<p style="color:var(--muted)">No users yet.</p>';
+    return;
+  }
+  document.getElementById('users-list').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Name</th><th>Plan</th><th>Allowance</th><th>Max/Req</th>
+      </tr></thead>
+      <tbody>${users.map(u => `
+        <tr>
+          <td style="font-family:monospace;font-size:11px" title="${u.id}">${u.id.substring(0,8)}…
+            <button class="btn secondary" style="padding:2px 6px;font-size:11px;margin-left:4px" onclick="navigator.clipboard.writeText('${u.id}');this.textContent='✓'">copy</button>
+          </td>
+          <td>${esc(u.name)}</td>
+          <td>${esc(u.plan.name)}</td>
+          <td>${u.plan.monthlyAllowance.toLocaleString()}</td>
+          <td>${u.plan.maxUnitsPerRequest.toLocaleString()}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function changeUserPlan() {
+  if (!requireKey()) return;
+  const userId = document.getElementById('chg-user-id').value.trim();
+  const planId = document.getElementById('chg-user-plan-id').value.trim();
+  const { status, body } = await apiFetch(`/api/v1/users/${userId}/plan`, {
+    method: 'PATCH',
+    headers: apiHeaders(),
+    body: JSON.stringify({ planId }),
+  });
+  showJson('chg-user-res', body, status === 200 ? 'ok' : 'err');
+}
+
+// ────────────────────────────────────────────────────────────
+// PLANS
+// ────────────────────────────────────────────────────────────
+async function listPlans() {
+  if (!requireKey()) return;
+  const { status, body } = await apiFetch('/api/v1/plans', { headers: apiHeaders() });
+  if (status !== 200) { document.getElementById('plans-list').innerHTML = `<p style="color:var(--red)">${JSON.stringify(body)}</p>`; return; }
+  const planList = body.plans || [];
+  if (!planList.length) {
+    document.getElementById('plans-list').innerHTML = '<p style="color:var(--muted)">No plans found.</p>';
+    return;
+  }
+  document.getElementById('plans-list').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Name</th><th>Scope</th><th>Allowance</th><th>Max/Req</th><th>Custom</th>
+      </tr></thead>
+      <tbody>${planList.map(p => `
+        <tr>
+          <td style="font-family:monospace;font-size:11px" title="${p.id}">${p.id.substring(0,8)}…
+            <button class="btn secondary" style="padding:2px 6px;font-size:11px;margin-left:4px" onclick="navigator.clipboard.writeText('${p.id}');this.textContent='✓'">copy</button>
+          </td>
+          <td>${esc(p.name)}</td>
+          <td>${esc(p.scope)}</td>
+          <td>${p.monthlyAllowance.toLocaleString()}</td>
+          <td>${p.maxUnitsPerRequest.toLocaleString()}</td>
+          <td>${p.isCustom ? '✓' : '—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function createPlan() {
+  if (!requireKey()) return;
+  const name = document.getElementById('plan-name').value.trim();
+  const scope = document.getElementById('plan-scope').value;
+  const monthlyAllowance = parseInt(document.getElementById('plan-allowance').value, 10);
+  const maxUnitsPerRequest = parseInt(document.getElementById('plan-max').value, 10);
+  const { status, body } = await apiFetch('/api/v1/plans', {
+    method: 'POST',
+    headers: apiHeaders(),
+    body: JSON.stringify({ name, scope, monthlyAllowance, maxUnitsPerRequest }),
+  });
+  showJson('plan-create-res', body, status === 201 ? 'ok' : 'err');
+}
+
+// ────────────────────────────────────────────────────────────
+// USAGE
+// ────────────────────────────────────────────────────────────
+async function submitUsage() {
+  if (!requireKey()) return;
+  const userId = document.getElementById('usage-user-id').value.trim();
+  const units = parseInt(document.getElementById('usage-units').value, 10);
+  const clientRequestId = document.getElementById('usage-req-id').value.trim();
+
+  const { status, body } = await apiFetch('/api/v1/usage', {
+    method: 'POST',
+    headers: apiHeaders(),
+    body: JSON.stringify({ userId, units, clientRequestId }),
+  });
+
+  let cls = 'info';
+  if (status === 200) cls = 'ok';
+  else if (status === 429) cls = 'warn';
+  else if (status >= 400) cls = 'err';
+  showJson('usage-res', body, cls);
+}
+
+// ────────────────────────────────────────────────────────────
+// SUMMARY
+// ────────────────────────────────────────────────────────────
+async function loadSummary() {
+  if (!requireKey()) return;
+  const { status, body } = await apiFetch('/api/v1/usage/summary', { headers: apiHeaders() });
+  if (status !== 200) {
+    document.getElementById('summary-stats').innerHTML = '';
+    document.getElementById('summary-users').innerHTML = `<p style="color:var(--red)">${JSON.stringify(body)}</p>`;
+    return;
+  }
+
+  document.getElementById('summary-stats').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="label">Period</div>
+        <div class="value" style="font-size:16px">${esc(body.period || '—')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Account Used</div>
+        <div class="value">${(body.account?.used ?? 0).toLocaleString()}</div>
+        <div class="sub">of ${(body.account?.allowance ?? '?').toLocaleString()}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Remaining</div>
+        <div class="value" style="color:var(--green)">${(body.account?.remaining ?? 0).toLocaleString()}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Accepted</div>
+        <div class="value" style="color:var(--green)">${(body.account?.acceptedRequests ?? 0).toLocaleString()}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Rejected</div>
+        <div class="value" style="color:var(--red)">${(body.account?.rejectedRequests ?? 0).toLocaleString()}</div>
+      </div>
+    </div>`;
+
+  const userBreakdown = body.users || [];
+  if (!userBreakdown.length) {
+    document.getElementById('summary-users').innerHTML = '<p style="color:var(--muted);margin-top:12px">No user activity this month.</p>';
+    return;
+  }
+  document.getElementById('summary-users').innerHTML = `
+    <h3 style="font-size:13px;color:var(--muted);margin:16px 0 8px">Per-User Breakdown</h3>
+    <table>
+      <thead><tr>
+        <th>User</th><th>Used</th><th>Allowance</th><th>Remaining</th><th>Accepted</th><th>Rejected</th>
+      </tr></thead>
+      <tbody>${userBreakdown.map(u => `
+        <tr>
+          <td>${esc(u.userName || u.userId)}</td>
+          <td>${(u.used ?? 0).toLocaleString()}</td>
+          <td>${(u.allowance ?? '?').toLocaleString()}</td>
+          <td style="color:var(--green)">${(u.remaining ?? 0).toLocaleString()}</td>
+          <td>${(u.acceptedRequests ?? 0).toLocaleString()}</td>
+          <td>${(u.rejectedRequests ?? 0).toLocaleString()}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ────────────────────────────────────────────────────────────
+// MONTHLY REPORT
+// ────────────────────────────────────────────────────────────
+async function loadReport() {
+  if (!requireKey()) return;
+  const period = document.getElementById('report-period').value.trim();
+  const { status, body } = await apiFetch(`/api/v1/usage/reports/monthly?period=${encodeURIComponent(period)}`, {
+    headers: apiHeaders(),
+  });
+  showJson('report-res', body, status === 200 ? 'info' : 'err');
+}
+
+// ────────────────────────────────────────────────────────────
+// HISTORY
+// ────────────────────────────────────────────────────────────
+async function loadHistory(page) {
+  if (!requireKey()) return;
+  histCurrentPage = page;
+  const userId = document.getElementById('hist-user-id').value.trim();
+  const status = document.getElementById('hist-status').value;
+  const limit = document.getElementById('hist-limit').value || 20;
+
+  let url = `/api/v1/usage/history?page=${page}&limit=${limit}`;
+  if (userId) url += `&userId=${encodeURIComponent(userId)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+
+  const { status: httpStatus, body } = await apiFetch(url, { headers: apiHeaders() });
+  const histDiv = document.getElementById('hist-table');
+  const pagination = document.getElementById('hist-pagination');
+
+  if (httpStatus !== 200) {
+    histDiv.innerHTML = `<p style="color:var(--red)">${JSON.stringify(body)}</p>`;
+    pagination.style.display = 'none';
+    return;
+  }
+
+  const records = body.records || [];
+  if (!records.length) {
+    histDiv.innerHTML = '<p style="color:var(--muted)">No records found.</p>';
+    pagination.style.display = 'none';
+    return;
+  }
+
+  histDiv.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Status</th><th>Units</th><th>Period</th><th>Client Request ID</th><th>Reason</th><th>Created</th>
+      </tr></thead>
+      <tbody>${records.map(r => `
+        <tr>
+          <td>${r.status === 'ACCEPTED'
+            ? '<span class="tag accepted">ACCEPTED</span>'
+            : '<span class="tag rejected">REJECTED</span>'}</td>
+          <td>${(r.unitsRequested ?? r.units ?? 0).toLocaleString()}</td>
+          <td>${esc(r.period || '—')}</td>
+          <td style="font-family:monospace;font-size:11px">${esc((r.clientRequestId || '').substring(0,16))}…</td>
+          <td style="color:var(--muted);font-size:12px">${esc(r.rejectionReason || '—')}</td>
+          <td style="font-size:11px;color:var(--muted)">${new Date(r.createdAt).toLocaleString()}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  const meta = body.pagination || {};
+  const pageInfo = document.getElementById('hist-page-info');
+  pageInfo.textContent = `Page ${meta.page ?? page} of ${meta.totalPages ?? '?'} — ${meta.total ?? records.length} total`;
+  pagination.style.display = 'flex';
+  document.getElementById('hist-prev').disabled = page <= 1;
+  document.getElementById('hist-next').disabled = !meta.hasNextPage;
+}
+
+function histPage(delta) {
+  loadHistory(histCurrentPage + delta);
+}
+
+// ────────────────────────────────────────────────────────────
+// UTILS
+// ────────────────────────────────────────────────────────────
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ────────────────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────────────────
+loadDemoPlans();
+
+// Pre-fill the current month in the report period input
+const now = new Date();
+document.getElementById('report-period').value =
+  `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "usage-metering-quota-service",
+  "version": "1.0.0",
+  "description": "Usage Metering and Quota Service with dual-hierarchy quota enforcement and idempotency",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').cpSync('src/public', 'dist/src/public', { recursive: true, force: true }); require('fs').cpSync('src/db/migrations', 'dist/src/db/migrations', { recursive: true, force: true });\"",
+    "start": "node dist/src/index.js",
+    "dev": "tsx watch src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test:perf": "tsx tests/performance.ts"
+  },
+  "keywords": [
+    "metering",
+    "quota",
+    "rate-limiting",
+    "idempotency",
+    "drizzle-orm",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "postgres": "^3.4.5",
+    "drizzle-orm": "^0.38.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.7",
+    "drizzle-kit": "^0.30.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

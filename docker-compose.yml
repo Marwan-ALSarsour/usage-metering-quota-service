@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: usage_metering_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-metering_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-metering_pass}
+      POSTGRES_DB: ${DB_NAME:-usage_metering}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-metering_user} -d ${DB_NAME:-usage_metering}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: usage_metering_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-metering_user}
+      DB_PASSWORD: ${DB_PASSWORD:-metering_pass}
+      DB_NAME: ${DB_NAME:-usage_metering}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-admin_dev_secret_key_123}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres_data:
